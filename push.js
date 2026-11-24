@@ -41,18 +41,18 @@
       if (await Notification.requestPermission() !== "granted") throw new Error("알림이 차단돼 있어요. 기기 설정에서 허용해 주세요.");
       const t = await token();
       if (!t) throw new Error("알림을 켜지 못했어요. 잠시 후 다시 시도해 주세요.");
-      await api("pushRegister", { token: t });
+      await api("pushRegister", { device: t });
       localStorage.setItem("push_token", t);
     },
     disable() {
       const t = localStorage.getItem("push_token");
       localStorage.removeItem("push_token");
-      return t ? api("pushUnregister", { token: t }).catch(() => {}) : Promise.resolve();
+      return t ? api("pushUnregister", { device: t }).catch(() => {}) : Promise.resolve();
     },
     async sync() {
       if (!this.enabled()) return;
       const t = await token();
-      if (t && t !== localStorage.getItem("push_token")) { await api("pushRegister", { token: t }); localStorage.setItem("push_token", t); }
+      if (t && t !== localStorage.getItem("push_token")) { await api("pushRegister", { device: t }); localStorage.setItem("push_token", t); }
     },
   };
 })();
