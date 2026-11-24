@@ -409,7 +409,7 @@
         <div class="card notice" data-toggle>
           <div class="head">${n.pinned ? '<i class="pin"></i>' : ""}<h3>${esc(n.title)}</h3></div>
           <div class="when">${fmtDay(n.createdAt)}${n.images && n.images.length ? " · 사진 " + n.images.length : ""}</div>
-          <div class="body">${esc(n.body)}${gallery(n.images)}</div>
+          <div class="body">${esc(n.body)}${gallery(n.images)}${state.me.role === "admin" ? `<div class="row" style="margin-top:12px"><button class="btn small ghost" data-delnotice="${n.id}">삭제</button></div>` : ""}</div>
         </div>`).join("") || '<div class="empty"><b>아직 공지가 없어요</b></div>'}
     </div>`;
   }
@@ -565,6 +565,7 @@
           <div class="row wrap"><button class="btn small ghost" data-list="${a.id}">신청 현황</button>
           <button class="btn small ghost" data-sched="${a.id}">일정 수정</button>
           <button class="btn small ghost" data-copy="${a.id}">복사</button>
+          <button class="btn small ghost" data-delact="${a.id}">삭제</button>
           ${p === "up" ? `<button class="btn small sub" data-opennow="${a.id}">지금 열기</button>` : ""}
           ${p === "open" ? `<button class="btn small sub" data-close="${a.id}">지금 마감</button>` : ""}</div>
         </div>`;
@@ -641,7 +642,7 @@
   }
   const apply = (d, msg) => { Object.assign(state, { activities: d.activities, notices: d.notices, semester: d.semester || "", history: d.history || [], sig: "" }); state.sig = signature(); if (msg) toast(msg); render(); };
 
-  const SEL = "[data-go],[data-apply],[data-cancel],[data-toggle],[data-logout],[data-push],[data-lang],[data-newsem],[data-admintab],[data-list],[data-close],[data-opennow],[data-type],[data-tpl],[data-copy],[data-sched],[data-savesched],[data-extend],[data-opt],[data-vopt],[data-wn],[data-day],[data-visit],[data-save],[data-submit],[data-rmphoto],[data-zoom],[data-retry]";
+  const SEL = "[data-go],[data-apply],[data-cancel],[data-toggle],[data-logout],[data-push],[data-lang],[data-newsem],[data-admintab],[data-list],[data-close],[data-delnotice],[data-delact],[data-opennow],[data-type],[data-tpl],[data-copy],[data-sched],[data-savesched],[data-extend],[data-opt],[data-vopt],[data-wn],[data-day],[data-visit],[data-save],[data-submit],[data-rmphoto],[data-zoom],[data-retry]";
   document.addEventListener("click", async (e) => {
     const t = e.target.closest(SEL);
     if (!t) return;
@@ -732,6 +733,16 @@
       const a = state.activities.find((x) => x.id === aid), sel = curSel(a);
       state.sel[aid] = sel.includes(oid) ? sel.filter((x) => x !== oid) : isMulti(a) ? [...sel, oid] : [oid];
       const y = window.scrollY; renderDetail(aid); window.scrollTo(0, y); return;
+    }
+    if (d.delnotice) {
+      if (!confirm("이 공지를 삭제할까요? 되돌릴 수 없어요.")) return;
+      const r = await run(() => api("deleteNotice", { id: d.delnotice }), "공지를 삭제했어요");
+      return r && apply(r);
+    }
+    if (d.delact) {
+      if (!confirm("이 활동과 신청 내역을 모두 삭제할까요? 되돌릴 수 없어요.\n끝난 활동은 삭제하지 않고 두면 부원의 내 정보 기록으로 남아요.")) return;
+      const r = await run(() => api("deleteActivity", { activityId: d.delact }), "활동을 삭제했어요");
+      return r && apply(r);
     }
     if (d.close) {
       if (!confirm("지금 바로 마감할까요?")) return;

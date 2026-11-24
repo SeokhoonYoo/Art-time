@@ -287,6 +287,17 @@
       db.activities.find((x) => x.id === activityId).status = "closed";
       save(db); return view(db, m);
     },
+    async deleteNotice({ id }) {
+      await wait(); const db = load(); const m = authed(db, true);
+      db.notices = db.notices.filter((n) => n.id !== id);
+      save(db); return view(db, m);
+    },
+    async deleteActivity({ activityId }) {
+      await wait(); const db = load(); const m = authed(db, true);
+      db.activities = db.activities.filter((a) => a.id !== activityId);
+      db.applications = db.applications.filter((p) => p.activityId !== activityId);
+      save(db); return view(db, m);
+    },
     async openNow({ activityId }) {
       await wait(); const db = load(); const m = authed(db, true);
       db.activities.find((x) => x.id === activityId).opensAt = null;
