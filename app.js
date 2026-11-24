@@ -106,6 +106,7 @@
     if (data.token) localStorage.setItem("token", data.token); // 접속할 때마다 로그인 유지 기간 연장
     Object.assign(state, { me: data.me, activities: data.activities, notices: data.notices, semester: data.semester || "", history: data.history || [], loaded: true });
     state.sig = signature();
+    if (!state.pushSynced) { state.pushSynced = true; PUSH.sync().catch(() => {}); }
   }
   const signature = () => state.activities.map((a) => a.id + phase(a)).join();
 
@@ -164,6 +165,7 @@
   }
 
   function logout() {
+    PUSH.disable();
     localStorage.removeItem("token");
     Object.assign(state, { me: null, loaded: false, sel: {}, draft: {} });
     renderLogin();
@@ -412,6 +414,16 @@
     </div>`;
   }
 
+  function pushCard() {
+    if (api.isDemo || !PUSH.configured) return "";
+    if (PUSH.needsInstall) return `<div class="section-title">알림</div><div class="card"><span class="meta">아이폰에서는 공유 버튼 → ‘홈 화면에 추가’로 설치한 뒤 앱에서 알림을 켤 수 있어요.</span></div>`;
+    if (!PUSH.supported) return "";
+    const on = PUSH.enabled();
+    return `<div class="section-title">알림</div><div class="card row" style="align-items:center;justify-content:space-between;gap:12px">
+      <span><b>푸시 알림</b><br><span class="meta">새 공지 · 모집 시작 · 마감 임박 · 대기 확정</span></span>
+      <button type="button" class="btn ${on ? "sub" : ""}" data-push style="flex:none;width:auto;padding:0 16px">${on ? "끄기" : "켜기"}</button></div>`;
+  }
+
   function renderMy() {
     const HIDE_MY = ["survey", "exhibit"];
     const mine = state.activities.filter((a) => a.mine && !HIDE_MY.includes(a.type));
@@ -424,6 +436,7 @@
         <button type="button" class="${I18N.lang === "ko" ? "on" : ""}" data-lang="ko">한국어</button>
         <button type="button" class="${I18N.lang === "en" ? "on" : ""}" data-lang="en">English</button>
       </div>
+      ${pushCard()}
       <div class="section-title">내 활동</div>
       ${mine.map(activityCard).join("") || '<div class="empty"><b>참여한 활동이 없어요</b>홈에서 마음에 드는 활동을 골라 보세요.</div>'}
       ${history.length ? `<div class="section-title">지난 학기 활동</div>${history.map((h) => `<div class="card hist"><span class="tag done">${TYPE[h.type] || ""}</span><h3>${esc(h.title)}</h3><div class="row"><span class="meta">${esc(h.semester)}</span><span class="status ok">${esc(h.label)}</span></div></div>`).join("")}` : ""}
@@ -628,7 +641,7 @@
   }
   const apply = (d, msg) => { Object.assign(state, { activities: d.activities, notices: d.notices, semester: d.semester || "", history: d.history || [], sig: "" }); state.sig = signature(); if (msg) toast(msg); render(); };
 
-  const SEL = "[data-go],[data-apply],[data-cancel],[data-toggle],[data-logout],[data-lang],[data-newsem],[data-admintab],[data-list],[data-close],[data-opennow],[data-type],[data-tpl],[data-copy],[data-sched],[data-savesched],[data-extend],[data-opt],[data-vopt],[data-wn],[data-day],[data-visit],[data-save],[data-submit],[data-rmphoto],[data-zoom],[data-retry]";
+  const SEL = "[data-go],[data-apply],[data-cancel],[data-toggle],[data-logout],[data-push],[data-lang],[data-newsem],[data-admintab],[data-list],[data-close],[data-opennow],[data-type],[data-tpl],[data-copy],[data-sched],[data-savesched],[data-extend],[data-opt],[data-vopt],[data-wn],[data-day],[data-visit],[data-save],[data-submit],[data-rmphoto],[data-zoom],[data-retry]";
   document.addEventListener("click", async (e) => {
     const t = e.target.closest(SEL);
     if (!t) return;
@@ -642,6 +655,13 @@
     if (t.hasAttribute("data-retry")) return render();
     if (t.hasAttribute("data-toggle")) return t.classList.toggle("open");
     if (t.hasAttribute("data-logout")) return logout();
+    if (t.hasAttribute("data-push")) {
+      t.disabled = true;
+      try {
+        if (PUSH.enabled()) { await PUSH.disable(); toast("알림을 껐어요"); } else { await PUSH.enable(); toast("알림을 켰어요"); }
+      } catch (err) { toast(err.message || "알림을 바꾸지 못했어요."); }
+      return render();
+    }
     if (d.lang) { I18N.set(d.lang); return; }
     if (t.hasAttribute("data-newsem")) {
       const label = (prompt("새 학기 이름을 입력해 주세요. (예: 2027-1)") || "").trim();
